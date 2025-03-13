@@ -68,6 +68,20 @@ def train_ui():
         if st.button("Train Model"):
             model, mae = train_model(df, label_encoders)
             st.success(f"Model trained successfully! MAE: {mae:.2f}")
+            st.write(f"Mean Absolute Error (MAE): {mae:.2f}")
+
+            # Feature Importance
+            feature_importance = pd.DataFrame({
+                "Feature": df.columns[:-1],  # Exclude target column
+                "Importance": model.feature_importances_
+            }).sort_values(by="Importance", ascending=False)
+
+            st.subheader("Feature Importance")
+            st.bar_chart(feature_importance.set_index("Feature"))
+
+            # # Display model parameters
+            # st.subheader("Model Parameters")
+            # st.json(model.get_params())
 
 # Streamlit UI for prediction
 def predict_ui():
@@ -82,7 +96,7 @@ def predict_ui():
     st.header("Predict Consumption")
 
     month = st.selectbox("Month", list(range(1, 13)))
-    year = st.selectbox("Year", list(range(2020, 2025)))
+    year = st.selectbox("Year", list(range(2024, 2027)))
 
     # Allow user to select medicines dynamically
     medicine_names = list(label_encoders["Medicine Name"].classes_)
