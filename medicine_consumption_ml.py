@@ -7,7 +7,55 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error
 from sklearn.preprocessing import LabelEncoder
 import matplotlib.pyplot as plt
+from azure.ai.formrecognizer import DocumentAnalysisClient
+from azure.core.credentials import AzureKeyCredential
+from dotenv import load_dotenv
+import os
 
+def analyze_document(file):
+    load_dotenv()
+    endpoint = os.getenv("DOC_INTELLIGENCE_ENDPOINT")
+    key = os.getenv("DOC_INTELLIGENCE_KEY")
+    model_id = os.getenv("MODEL_ID")
+    
+    document_analysis_client = DocumentAnalysisClient(
+        endpoint=endpoint, credential=AzureKeyCredential(key)
+    )
+    
+    response = document_analysis_client.begin_analyze_document(
+        model_id, file.read()
+    )
+    result = response.result()
+    
+    analyzed_documents = []
+    for doc in result.documents:
+        fields = {name: (field.value if field.value else field.content, field.confidence) for name, field in doc.fields.items()}
+        analyzed_documents.append({
+            "Document Type": doc.doc_type,
+            "Confidence": doc.confidence,
+            "Model ID": result.model_id,
+            "Fields": fields
+        })
+    return analyzed_documents
+
+def document_analysis_ui():
+    st.title("Document Analysis with Azure Form Recognizer")
+    uploaded_file = st.file_uploader("Upload a PDF file", type=["pdf"])
+    
+    if uploaded_file is not None:
+        if st.button("Analyze Document"):
+            with st.spinner("Processing..."):
+                result = analyze_document(uploaded_file)
+            st.success("Analysis complete!")
+            
+            for idx, doc in enumerate(result, 1):
+                st.subheader(f"Document #{idx}")
+                st.write(f"**Document Type:** {doc['Document Type']}")
+                st.write(f"**Confidence:** {doc['Confidence']:.2f}")
+                st.write("### Fields:")
+                for name, (value, confidence) in doc['Fields'].items():
+                    if name != "Items":
+                        st.write(f"- **{name}:** {value} (Confidence: {confidence:.2f})")
 # Function to preprocess data and encode categorical features
 def load_data(uploaded_file):
     df = pd.read_csv(uploaded_file)
@@ -122,12 +170,14 @@ def predict_ui():
 
 # Main Streamlit app
 def main():
-    option = st.selectbox("Select Option", ["Train Model", "Predict Consumption"])
+    option = st.selectbox("Select Option", ["Train Model", "Predict Consumption","Analyze Document"])
 
     if option == "Train Model":
         train_ui()
-    else:
+    elif option == "Predict Consumption":
         predict_ui()
+    elif option == "Analyze Document":
+        document_analysis_ui()
 
 if __name__ == "__main__":
     main()
